@@ -15,12 +15,12 @@ https://forum.armbian.com/topic/3252-opi-zero-boot-with-spi/
 
 ## os
 
-    - [ARMBIAN strech](https://www.armbian.com/orange-pi-zero/)
+- [ARMBIAN strech](https://www.armbian.com/orange-pi-zero/)
 
-    ```bash
-    > uname -a
-    Linux radio 4.14.12-sunxi #1 SMP Tue Jan 9 13:53:33 UTC 2018 armv7l GNU/Linux
-    ```
+```bash
+> uname -a
+Linux radio 4.14.12-sunxi #1 SMP Tue Jan 9 13:53:33 UTC 2018 armv7l GNU/Linux
+```
 
 
 ## install software
@@ -34,10 +34,9 @@ apt-get install flashrom
 
 ## activate overlay for spi bus (rom)
 
-**BE SURE** you have a OPI zero with a spi ic :-) Some version came w/o spi
+**PLEASE BE SURE** you have a OPI zero with a spi ic :-) Some version came w/o spi
 
 - edit in file /boot/armbianEnv.txt and add spi-spidev AND param_spidev_spi_bus=0
-
 
 ```bash
 overlays=analog-codec usbhost2 usbhost3 spi-spidev
@@ -60,11 +59,10 @@ param_spidev_spi_bus=0
 usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
 ```
 
-
-- cold reboot the OPI zero
+## cold reboot the OPI zero
 
 ```bash
-shutdown -Fh now
+sudo shutdown -Fh now
 # unplug/plug the power adapter
 ```
 
@@ -85,17 +83,17 @@ sudo nand-sata-install
 # follow instruction inside the menu
 
 # mount the pendrive/stick
-mount /dev/sda1 /mnt
+sudo mount /dev/sda1 /mnt
 
 # copy the /boot directory
-cp -a /boot /mnt
+sudo cp -a /boot /mnt
 
-# edit  the file /mnt/boot/boot.cmd and fix setenv rootdev
+# edit  the file /mnt/boot/boot.cmd and fix the line setenv rootdev
 # it is the same device did you mounted in last step
 setenv rootdev "/dev/sda1"
 
 # create a new boot.scr on the boot device
-mkimage -C none -A arm -T script -d /mnt/boot/boot.cmd /mnt/boot/boot.scr
+sudo mkimage -C none -A arm -T script -d /mnt/boot/boot.cmd /mnt/boot/boot.scr
 
 # edited /etc/fstab
 # uncomment the line with /media/mmcboot
@@ -109,7 +107,6 @@ mkimage -C none -A arm -T script -d /mnt/boot/boot.cmd /mnt/boot/boot.scr
 /dev/sda1: UUID="84168f41-20b8-4905-9021-54488d09dc33" TYPE="ext4" PARTUUID="9810d5f7-01"
 #
 # edit the /etc/fstab with YOUR data to
-
 UUID=84168f41-20b8-4905-9021-54488d09dc33   /    ext4    defaults,noatime,nodiratime,commit=600,errors=remount-ro,x-gvfs-hide    0   1
 
 ```
@@ -118,16 +115,16 @@ UUID=84168f41-20b8-4905-9021-54488d09dc33   /    ext4    defaults,noatime,nodira
 
 ```bash
 # create empty image
-dd if=/dev/zero count=2048 bs=1K | tr '\000' '\377' > spi.img
+sudo dd if=/dev/zero count=2048 bs=1K | tr '\000' '\377' > spi.img
 # ATTENTION in some tutorial used the size 4096k BUT in the some OPI zero board are only a 2048K
 # We need only 537k space for the u-boot image in this case
 
 # write/copy u-boot in spi image
 # this file is already of the images/sd card
-dd if=/usr/lib/linux-u-boot-next-orangepizero_5.37_armhf/u-boot-sunxi-with-spl.bin of=spi.img bs=1k conv=notrunc
+sudo dd if=/usr/lib/linux-u-boot-next-orangepizero_5.37_armhf/u-boot-sunxi-with-spl.bin of=spi.img bs=1k conv=notrunc
 
 # flash the image to spi rom
-flashrom -p linux_spi:dev=/dev/spidev0.0 -w spi.img -c MX25L1605A/MX25L1606E/MX25L1608E
+sudo flashrom -p linux_spi:dev=/dev/spidev0.0 -w spi.img -c MX25L1605A/MX25L1606E/MX25L1608E
 ```
 
 ## cold reboot the device
