@@ -22,15 +22,37 @@ https://forum.armbian.com/topic/3252-opi-zero-boot-with-spi/
 Linux radio 4.14.12-sunxi #1 SMP Tue Jan 9 13:53:33 UTC 2018 armv7l GNU/Linux
 ```
 
+## prepare and boot from sd card
+
+```bash
+# prepare sd card for boot on your linux computer
+cd /tmp
+curl -k  -L https://dl.armbian.com/orangepizero/Debian_stretch_next.7z
+7z e Debian_stretch_next.7z
+# the archive Dabian_strech_next.7z contains Armbian_5.75_Orangepizero_Debian_stretch_next_4.19.20.img
+sudo dd if=Armbian_5.75_Orangepizero_Debian_stretch_next_4.19.20.img of=/dev/mmcblk0 bs=1M status=progress | sync
+sync
+# boot with this sd card your orange pi zero
+```
+
+## connect serial console at start minicom
+
+- pin layout look on the board near the pins
+
+```bash
+# serial modem on /dev/ttyUSB0
+sudo minicom -s -D /dev/ttyUSB0 -b 115200 --color=on
+```
+
 
 ## install software
 
-- **first** freeze the kernel packages
-  the package not anytime updated
+**first** freeze the kernel packages
+the package not anytime updated
 
-  -via armbian-config
+-via armbian-config
 
-  -or via cli
+-or via cli
 
 ```bash
 sudo apt-mark hold linux-dtb-next-sunxi
@@ -39,7 +61,7 @@ sudo apt-mark hold linux-stretch-root-next-orangepizero
 sudo apt-mark hold linux-u-boot-orangepizero-next
 ```
 
-    - un hold
+- un hold
 
 ```bash
 sudo apt-mark unhold linux-dtb-next-sunxi
@@ -48,30 +70,32 @@ sudo apt-mark unhold linux-stretch-root-next-orangepizero
 sudo apt-mark unhold linux-u-boot-orangepizero-next
 ```
 
-
 - display packages on hold
 
 ```bash
 dpkg --get-selections |awk '$2 == "hold" { print $1 }'
 ```
 
+## activate overlay for spi bus (rom)
+
+**Important** this follow step must you do onces per board or for update uboot, this is not necessary you want update your usb device
+
+**PLEASE BE SURE** you have a OPI zero with a spi ic :-) Some version came w/o spi
+
 ```bash
 sudo apt update && sudo apt upgrade && sudo apt autoremove
 sudo apt-get install flashrom
 ```
 
-## activate overlay for spi bus (rom)
-
-**PLEASE BE SURE** you have a OPI zero with a spi ic :-) Some version came w/o spi
-
 - edit in file /boot/armbianEnv.txt and add spi-spidev AND param_spidev_spi_bus=0
 
 ```bash
+# edit by hand
 overlays=analog-codec usbhost2 usbhost3 spi-spidev
 param_spidev_spi_bus=0
 ```
 
-- with bash
+- with bash script
 
 ```bash
 ARMBIAN_ENV_FILE="/boot/armbianEnv.txt"
@@ -105,7 +129,7 @@ usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
 
 ```bash
 sudo shutdown -Fh now
-# unplug/plug the power adapter
+# unplug/plug the power adapter and start again
 ```
 
 **AFTER THE COLD REBOOT** should you see the spi device under /dev
@@ -115,54 +139,7 @@ sudo shutdown -Fh now
 crw------- 1 root root 153, 0 Nov 10 21:17 /dev/spidev0.0
 ```
 
-
-## prepare usb or disk
-
-- install Armbian on pendisk or disk
-
-```bash
-sudo nand-sata-install
-# follow instruction inside the menu
-
-# mount the pendrive/stick
-sudo mount /dev/sda1 /mnt
-
-# copy the /boot directory
-sudo cp -a /boot /mnt
-
-# edit  the file /mnt/boot/boot.cmd and fix the line setenv rootdev
-# old entry
-# setenv rootdev "/dev/mmcblk0p1"
-# it is the same device did you mounted in last step
-setenv rootdev "/dev/sda1"
-
-# create a new boot.scr on the boot device
-sudo mkimage -C none -A arm -T script -d /mnt/boot/boot.cmd /mnt/boot/boot.scr
-
-# edited /etc/fstab
-# uncomment the line with /media/mmcboot
-# AND
-# uncomment the line with /media/mmcboot/boot
-sudo sed -i '/mmcboot/s/^/#/' /mnt/etc/fstab
-
-
-# and ADD the the boot media
-#
-# **ATTENTION** you must used the id from YOUR device
-# you get the id of YOUR device with the command
->sudo blkid /dev/sda1
-/dev/sda1: UUID="84168f41-20b8-4905-9021-54488d09dc33" TYPE="ext4" PARTUUID="9810d5f7-01"
-#
-# save /mnt/etc/fstab
-sudo cp /mnt/etc/fstab /mnt/etc/fstab_save
-# edit the /etc/fstab with YOUR data to
-UUID=84168f41-20b8-4905-9021-54488d09dc33   /    ext4    defaults,noatime,nodiratime,commit=600,errors=remount-ro,x-gvfs-hide    0   1
-
-printf "UUID=%s\t/\t%s\tdefaults,noatime,nodiratime,commit=600,errors=remount-ro,x-gvfs-hide\t0\t1" $(sudo blkid /dev/sda1 -o value -s UUID) $(sudo blkid /dev/sda1 -o value -s TYPE)|sudo tee -a /mnt/etc/fstab
-
-```
-
-## prepare spi for boot
+## write uboot to  spi rom for boot from it
 
 ```bash
 # create empty image
@@ -173,15 +150,52 @@ sudo dd if=/dev/zero count=2048 bs=1K | tr '\000' '\377' > spi.img
 # write/copy u-boot in spi image
 # this file is already of the images/sd card
 # only the version number is depend from the armbian version
-sudo dd if=/usr/lib/linux-u-boot-next-orangepizero_5.65_armhf/u-boot-sunxi-with-spl.bin of=spi.img bs=1k conv=notrunc
+# e.g. sudo dd if=/usr/lib/linux-u-boot-next-orangepizero_5.65_armhf/u-boot-sunxi-with-spl.bin of=spi.img bs=1k conv=notrunc
 
 ARMBIAN_VERSION=$(grep VERSION /etc/armbian-release|sed 's/.*=//g')
+echo $ARMBIAN_VERSION
 sudo dd if=/usr/lib/linux-u-boot-next-orangepizero_${ARMBIAN_VERSION}_armhf/u-boot-sunxi-with-spl.bin of=spi.img bs=1k conv=notrunc
-
 
 # flash the image to spi rom
 sudo flashrom -p linux_spi:dev=/dev/spidev0.0 -w spi.img -c MX25L1605A/MX25L1606E/MX25L1608E
 ```
+
+
+## prepare usb or disk
+
+
+
+```bash
+# install Armbian on usb stick, pendisk or disk
+# follow instruction inside the menu default value is a good choice
+# DON'T REBOOT the device last step in the dialog
+sudo nand-sata-install
+
+# mount the pendrive/stick
+sudo mount /dev/sda1 /mnt
+
+# copy (overwrite) the /boot directory
+sudo cp -a /boot /mnt
+
+# edit /mnt/boot/boot.cmd and set the rootdev from usb device
+setenv rootdev "/dev/sda1"
+
+# create a new boot.scr on the boot device
+sudo mkimage -C none -A arm -T script -d /mnt/boot/boot.cmd /mnt/boot/boot.scr
+
+# save /mnt/etc/fstab
+sudo cp /mnt/etc/fstab /mnt/etc/fstab_save
+
+# edit /mnt/etc/fstab and uncomment all line with /media/mmcboot
+sudo sed -i '/mmcboot/s/^/#/' /mnt/etc/fstab
+
+
+# and ADD the the boot partition to /mnt/etc/fstab
+printf "UUID=%s\t/\t%s\tdefaults,noatime,nodiratime,commit=600,errors=remount-ro,x-gvfs-hide\t0\t1" $(sudo blkid /dev/sda1 -o value -s UUID) $(sudo blkid /dev/sda1 -o value -s TYPE)|sudo tee -a /mnt/etc/fstab
+
+```
+
+
 
 ## troubleshooting flashrom
 
